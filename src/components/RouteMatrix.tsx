@@ -7,10 +7,18 @@ interface RouteMatrixProps {
   subscriptionKey: string;
 }
 
+interface RouteLeg {
+  distance: number;
+  duration: number;
+  startPoint: string;
+  endPoint: string;
+}
+
 interface RouteResult {
   distance: number;
   duration: number;
   waypointOrder?: number[];
+  legs?: RouteLeg[];
 }
 
 export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }) => {
@@ -19,6 +27,7 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
   const [result, setResult] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTraffic, setShowTraffic] = useState(false);
   const dataSourceRef = useRef<atlas.source.DataSource | null>(null);
   const routeDataSourceRef = useRef<atlas.source.DataSource | null>(null);
 
@@ -46,18 +55,33 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
       'origin-layer'
     );
 
+    // Add symbol layer for route direction arrows
+    map.layers.add(
+      new atlas.layer.SymbolLayer(routeDataSource, 'route-arrows', {
+        iconOptions: {
+          image: 'marker-arrow',
+          allowOverlap: true,
+          ignorePlacement: true,
+          rotation: ['get', 'heading'],
+          size: 0.5,
+        },
+        lineSpacing: 100,
+      }),
+      'origin-layer'
+    );
+
     // Add symbol layer for origin (green pin)
     map.layers.add(
       new atlas.layer.SymbolLayer(dataSource, 'origin-layer', {
         filter: ['==', ['get', 'type'], 'origin'],
         iconOptions: {
-          image: 'pin-green',
-          size: 0.9,
-          anchor: 'center',
+          image: 'marker-darkgreen',
+          size: 1,
+          anchor: 'bottom',
         },
         textOptions: {
           textField: ['get', 'label'],
-          offset: [0, 1.5],
+          offset: [0, -2],
           color: '#107c10',
           size: 14,
           font: ['SegoeUi-Bold'],
@@ -125,6 +149,23 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
     dataSourceRef.current.add(features);
   }, [origin, waypoints]);
 
+  // Toggle traffic layer
+  useEffect(() => {
+    if (!map) return;
+
+    if (showTraffic) {
+      map.setTraffic({
+        incidents: true,
+        flow: 'relative',
+      });
+    } else {
+      map.setTraffic({
+        incidents: false,
+        flow: 'none',
+      });
+    }
+  }, [showTraffic, map]);
+
   const addOrigin = () => {
     if (!map) return;
     const center = map.getCamera().center;
@@ -141,6 +182,10 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
     }
   };
 
+  const clearOrigin = () => {
+    setOrigin(null);
+  };
+
   const calculateOptimizedRoute = async () => {
     if (!origin || waypoints.length === 0) {
       setError('Please add a start point and at least one waypoint');
@@ -155,31 +200,53 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
       const points = [origin, ...waypoints];
       const query = points.map(loc => `${loc.lat},${loc.lon}`).join(':');
       
-      const url = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=${subscriptionKey}&query=${query}&computeBestOrder=true`;
+      const trafficParam = showTraffic ? '&traffic=true' : '';
+      const url = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=${subscriptionKey}&query=${query}&computeBestOrder=true${trafficParam}`;
       
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || errorData.message || `HTTP error! status: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message || 'Route calculation failed');
+      }
+      
+      if (!data.routes || data.routes.length === 0) {
+        throw new Error('No route found. Points may be too far apart or not connected by roads.');
+      }
       
       if (data.routes?.[0]) {
         const route = data.routes[0];
         const summary = route.summary;
         
+        // Extract leg details
+        const legs: RouteLeg[] = route.legs?.map((leg: any, index: number) => ({
+          distance: leg.summary.lengthInMeters / 1000,
+          duration: leg.summary.travelTimeInSeconds / 60,
+          startPoint: index === 0 ? 'Start' : `Waypoint ${index}`,
+          endPoint: index === route.legs.length - 1 ? `Waypoint ${route.legs.length}` : `Waypoint ${index + 1}`,
+        })) || [];
+        
         setResult({
           distance: summary.lengthInMeters / 1000,
           duration: summary.travelTimeInSeconds / 60,
           waypointOrder: data.optimizedWaypoints?.map((wp: { optimizedIndex: number }) => wp.optimizedIndex),
+          legs,
         });
 
-        // Draw the route on the map
+        // Draw the route on the map with arrows
         if (routeDataSourceRef.current && route.legs) {
           routeDataSourceRef.current.clear();
           
           const allCoordinates: [number, number][] = [];
+          const arrowPoints: atlas.data.Feature<atlas.data.Point, { heading: number }>[] = [];
+          
           route.legs.forEach((leg: { points?: Array<{ latitude: number; longitude: number }> }) => {
             if (leg.points) {
               leg.points.forEach((point: { latitude: number; longitude: number }) => {
@@ -188,6 +255,20 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
             }
           });
 
+          // Add arrow points along the route
+          for (let i = 0; i < allCoordinates.length - 1; i += 20) {
+            const start = allCoordinates[i];
+            const end = allCoordinates[Math.min(i + 1, allCoordinates.length - 1)];
+            const heading = Math.atan2(end[1] - start[1], end[0] - start[0]) * 180 / Math.PI;
+            
+            arrowPoints.push(
+              new atlas.data.Feature(
+                new atlas.data.Point(start),
+                { heading }
+              )
+            );
+          }
+
           if (allCoordinates.length > 0) {
             routeDataSourceRef.current.add(
               new atlas.data.Feature(
@@ -195,6 +276,7 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
                 {}
               )
             );
+            routeDataSourceRef.current.add(arrowPoints);
           }
         }
       }
@@ -230,9 +312,22 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
             {origin ? '✓ Start Point Set' : 'Set Start Point'}
           </button>
           {origin && (
-            <span style={{ marginLeft: '10px', fontSize: '12px', color: '#666' }}>
-              {origin.lat.toFixed(4)}, {origin.lon.toFixed(4)}
-            </span>
+            <>
+              <span style={{ marginLeft: '10px', fontSize: '12px', color: '#666' }}>
+                {origin.lat.toFixed(4)}, {origin.lon.toFixed(4)}
+              </span>
+              <button 
+                onClick={clearOrigin}
+                style={{ 
+                  marginLeft: '10px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  backgroundColor: '#d13438',
+                }}
+              >
+                ✕ Clear
+              </button>
+            </>
           )}
         </div>
         
@@ -241,6 +336,18 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
             Add Waypoint
           </button>
           <span style={{ marginLeft: '10px' }}>Waypoints: {waypoints.length}</span>
+        </div>
+        
+        <div style={{ marginBottom: '10px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '14px' }}>
+            <input
+              type="checkbox"
+              checked={showTraffic}
+              onChange={(e) => setShowTraffic(e.target.checked)}
+              style={{ marginRight: '8px', cursor: 'pointer' }}
+            />
+            🚦 Show Live Traffic
+          </label>
         </div>
         
         <div style={{ marginTop: '15px' }}>
@@ -274,6 +381,27 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
             <div style={{ marginTop: '12px', fontSize: '13px', color: '#666' }}>
               Route optimized to visit all {waypoints.length} waypoint{waypoints.length !== 1 ? 's' : ''} efficiently
             </div>
+            
+            {result.legs && result.legs.length > 0 && (
+              <details style={{ marginTop: '15px' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', padding: '8px 0' }}>
+                  📋 Detailed Route Breakdown ({result.legs.length} segments)
+                </summary>
+                <div style={{ marginTop: '10px', paddingLeft: '10px', borderLeft: '3px solid #667eea' }}>
+                  {result.legs.map((leg, index) => (
+                    <div key={index} style={{ marginBottom: '12px', paddingLeft: '10px' }}>
+                      <div style={{ fontWeight: 'bold', color: '#667eea', marginBottom: '4px' }}>
+                        {leg.startPoint} → {leg.endPoint}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#555' }}>
+                        <div>🛣️ Distance: {leg.distance.toFixed(2)} km</div>
+                        <div>⏱️ Time: {Math.round(leg.duration)} minutes</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         </div>
       )}
