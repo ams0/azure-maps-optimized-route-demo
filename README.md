@@ -12,11 +12,12 @@ A React + TypeScript application for calculating optimized routes through multip
 - 🛣️ Visual route display with bold path lines
 - 📊 Total distance and duration calculations
 - 🎨 Modern, responsive UI
-- ⚛️ Built with React 18, TypeScript, and Vite
+- ⚛️ Built with React 19, TypeScript, and Vite
 
 ## Prerequisites
 
-- Node.js 22.12+ (you may see warnings with older versions)
+- Node.js (latest LTS recommended; see `.nvmrc`)
+- npm 10+
 - An Azure Maps account with a subscription key ([Get one here](https://portal.azure.com))
 
 ## Setup
@@ -27,12 +28,18 @@ A React + TypeScript application for calculating optimized routes through multip
    cd azure-maps-demo
    ```
 
-2. **Install dependencies**
+2. **Use a supported Node.js version (recommended)**
+   ```bash
+   nvm install
+   nvm use
+   ```
+
+3. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Configure Azure Maps**
+4. **Configure Azure Maps**
    - Copy the environment template:
      ```bash
      cp .env.example .env
@@ -42,7 +49,7 @@ A React + TypeScript application for calculating optimized routes through multip
      VITE_AZURE_MAPS_SUBSCRIPTION_KEY=your_key_here
      ```
 
-4. **Start development server**
+5. **Start development server**
    ```bash
    npm run dev
    ```
@@ -56,22 +63,6 @@ A React + TypeScript application for calculating optimized routes through multip
 4. **View Results**: See the route drawn on the map with total distance and duration
 
 The app automatically optimizes the order of waypoints to minimize total travel time!
-     ```
-     VITE_AZURE_MAPS_SUBSCRIPTION_KEY=your_key_here
-     ```
-
-3. **Start development server**
-   ```bash
-   npm run dev
-   ```
-   The app will open at http://localhost:5173
-
-## Usage
-
-1. **Add Origins**: Click "Add Origin" to add the current map center as an origin point
-2. **Add Destinations**: Click "Add Destination" to add destination points
-3. **Calculate**: Click "Calculate Route Matrix" to compute travel times and distances
-4. **View Results**: See the detailed matrix showing travel information between all origin-destination pairs
 
 ## Project Structure
 
@@ -99,7 +90,7 @@ This demo uses the [Azure Maps Route Directions API](https://docs.microsoft.com/
 
 ## Tech Stack
 
-- **React 18** - UI framework
+- **React 19** - UI framework
 - **TypeScript** - Type safety
 - **Vite** - Fast build tool
 - **Azure Maps Web SDK** - Map rendering and controls

@@ -5,6 +5,8 @@ import type { Location } from '../types/routeMatrix';
 interface RouteMatrixProps {
   map: atlas.Map | null;
   subscriptionKey: string;
+  onKeyChange?: (key: string) => void;
+  hasEnvKey?: boolean;
 }
 
 interface RouteLeg {
@@ -21,7 +23,7 @@ interface RouteResult {
   legs?: RouteLeg[];
 }
 
-export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }) => {
+export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey, onKeyChange, hasEnvKey }) => {
   const [origin, setOrigin] = useState<Location | null>(null);
   const [waypoints, setWaypoints] = useState<Location[]>([]);
   const [result, setResult] = useState<RouteResult | null>(null);
@@ -29,12 +31,23 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
   const [error, setError] = useState<string | null>(null);
   const [showTraffic, setShowTraffic] = useState(false);
   const [vehicleType, setVehicleType] = useState<'car' | 'truck'>('car');
+  const [manualKeyInput, setManualKeyInput] = useState('');
   const dataSourceRef = useRef<atlas.source.DataSource | null>(null);
   const routeDataSourceRef = useRef<atlas.source.DataSource | null>(null);
 
   // Initialize data source when map is ready
   useEffect(() => {
     if (!map) return;
+
+    // Ensure we have an arrow icon available for route direction markers.
+    // Using a built-in template avoids font/glyph issues with text-based arrows.
+    if (!map.imageSprite.hasImage('route-arrow')) {
+      map.imageSprite
+        .createFromTemplate('route-arrow', 'triangle-arrow-up', '#667eea', '#ffffff', 1)
+        .catch(() => {
+          // If the sprite/template fails for any reason, we simply won't render arrows.
+        });
+    }
 
     // Create data source for markers
     const dataSource = new atlas.source.DataSource();
@@ -46,29 +59,29 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
     map.sources.add(routeDataSource);
     routeDataSourceRef.current = routeDataSource;
 
-    // Add line layer for routes (below markers)
+    // Add line layer for routes (rendered under markers since marker layers are added after this)
     map.layers.add(
       new atlas.layer.LineLayer(routeDataSource, 'route-layer', {
         strokeColor: '#667eea',
         strokeWidth: 5,
         strokeOpacity: 0.9,
-      }),
-      'origin-layer'
+      })
     );
 
-    // Add symbol layer for route direction arrows
+    // Add symbol layer for directional arrows (point symbols with rotation)
     map.layers.add(
       new atlas.layer.SymbolLayer(routeDataSource, 'route-arrows', {
+        filter: ['==', ['get', 'isArrow'], true],
         iconOptions: {
-          image: 'marker-arrow',
+          image: 'route-arrow',
+          anchor: 'center',
           allowOverlap: true,
           ignorePlacement: true,
           rotation: ['get', 'heading'],
-          size: 0.5,
+          rotationAlignment: 'map',
+          size: 0.65,
         },
-        lineSpacing: 100,
-      }),
-      'origin-layer'
+      })
     );
 
     // Add symbol layer for origin (green pin)
@@ -235,7 +248,7 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
         const summary = route.summary;
         
         // Extract leg details
-        const legs: RouteLeg[] = route.legs?.map((leg: any, index: number) => ({
+        const legs: RouteLeg[] = route.legs?.map((leg: { summary: { lengthInMeters: number; travelTimeInSeconds: number } }, index: number) => ({
           distance: leg.summary.lengthInMeters / 1000,
           duration: leg.summary.travelTimeInSeconds / 60,
           startPoint: index === 0 ? 'Start' : `Waypoint ${index}`,
@@ -249,12 +262,11 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
           legs,
         });
 
-        // Draw the route on the map with arrows
+        // Draw the route on the map
         if (routeDataSourceRef.current && route.legs) {
           routeDataSourceRef.current.clear();
           
           const allCoordinates: [number, number][] = [];
-          const arrowPoints: atlas.data.Feature<atlas.data.Point, { heading: number }>[] = [];
           
           route.legs.forEach((leg: { points?: Array<{ latitude: number; longitude: number }> }) => {
             if (leg.points) {
@@ -264,28 +276,38 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
             }
           });
 
-          // Add arrow points along the route
-          for (let i = 0; i < allCoordinates.length - 1; i += 20) {
-            const start = allCoordinates[i];
-            const end = allCoordinates[Math.min(i + 1, allCoordinates.length - 1)];
-            const heading = Math.atan2(end[1] - start[1], end[0] - start[0]) * 180 / Math.PI;
-            
-            arrowPoints.push(
-              new atlas.data.Feature(
-                new atlas.data.Point(start),
-                { heading }
-              )
-            );
-          }
-
           if (allCoordinates.length > 0) {
+            // Add the route line; arrows are rendered as rotated point symbols along the line.
             routeDataSourceRef.current.add(
               new atlas.data.Feature(
                 new atlas.data.LineString(allCoordinates),
                 {}
               )
             );
-            routeDataSourceRef.current.add(arrowPoints);
+
+            // Add directional arrow points along the route line.
+            // Use a capped number of arrows so short routes still show a few, long routes don't get spammy.
+            const maxArrows = 25;
+            const step = Math.max(5, Math.floor(allCoordinates.length / (maxArrows + 1)));
+
+            for (let i = step; i < allCoordinates.length - step; i += step) {
+              const prev = allCoordinates[Math.max(0, i - 1)];
+              const next = allCoordinates[Math.min(allCoordinates.length - 1, i + 1)];
+
+              const dx = next[0] - prev[0];
+              const dy = next[1] - prev[1];
+              const heading = Math.atan2(dx, dy) * 180 / Math.PI;
+
+              routeDataSourceRef.current.add(
+                new atlas.data.Feature(
+                  new atlas.data.Point(allCoordinates[i]),
+                  {
+                    isArrow: true,
+                    heading,
+                  }
+                )
+              );
+            }
           }
         }
       }
@@ -441,6 +463,33 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
           </div>
         </div>
       )}
+      
+      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #ddd' }}>
+        <div style={{ fontSize: '13px', marginBottom: '8px', color: '#666' }}>
+          <strong>🔑 Azure Maps Subscription Key</strong>
+        </div>
+        <input
+          type="password"
+          value={manualKeyInput}
+          onChange={(e) => setManualKeyInput(e.target.value)}
+          onBlur={() => onKeyChange?.(manualKeyInput)}
+          placeholder={hasEnvKey ? 'Override .env key (optional)' : 'Enter your Azure Maps key'}
+          style={{
+            width: '100%',
+            padding: '8px',
+            fontSize: '12px',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            fontFamily: 'monospace',
+          }}
+        />
+        <div style={{ fontSize: '11px', color: '#999', marginTop: '5px' }}>
+          {hasEnvKey ? 'Currently using .env key' : 'Get your key from'}{' '}
+          <a href="https://portal.azure.com" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea' }}>
+            Azure Portal
+          </a>
+        </div>
+      </div>
     </div>
   );
 };

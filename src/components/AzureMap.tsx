@@ -13,6 +13,9 @@ export const AzureMap: React.FC<AzureMapProps> = ({ subscriptionKey, onMapReady 
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
+    
+    // Don't initialize map without a subscription key
+    if (!subscriptionKey) return;
 
     const map = new atlas.Map(mapRef.current, {
       center: [-122.33, 47.6],

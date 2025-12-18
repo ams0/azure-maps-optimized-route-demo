@@ -6,39 +6,9 @@ import './App.css';
 
 function App() {
   const [map, setMap] = useState<atlas.Map | null>(null);
-  const subscriptionKey = import.meta.env.VITE_AZURE_MAPS_SUBSCRIPTION_KEY;
-
-  if (!subscriptionKey) {
-    return (
-      <div style={{ padding: '20px' }}>
-        <h1>Azure Maps Route Matrix Demo</h1>
-        <div style={{ 
-          padding: '20px', 
-          backgroundColor: '#fff3cd', 
-          border: '1px solid #ffc107',
-          borderRadius: '4px'
-        }}>
-          <h2>⚠️ Configuration Required</h2>
-          <p>Please set your Azure Maps subscription key:</p>
-          <ol>
-            <li>Copy <code>.env.example</code> to <code>.env</code></li>
-            <li>Add your Azure Maps subscription key to the <code>.env</code> file</li>
-            <li>Restart the development server</li>
-          </ol>
-          <p>
-            Get your subscription key from the{' '}
-            <a 
-              href="https://portal.azure.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-            >
-              Azure Portal
-            </a>
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const [manualKey, setManualKey] = useState('');
+  const envKey = import.meta.env.VITE_AZURE_MAPS_SUBSCRIPTION_KEY;
+  const subscriptionKey = manualKey || envKey;
 
   return (
     <div className="app-container">
@@ -59,6 +29,8 @@ function App() {
           <RouteMatrix 
             map={map} 
             subscriptionKey={subscriptionKey}
+            onKeyChange={setManualKey}
+            hasEnvKey={!!envKey}
           />
         </div>
       </div>
