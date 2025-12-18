@@ -103,6 +103,15 @@ This demo uses the [Azure Maps Route Directions API](https://docs.microsoft.com/
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 
+## Deploy to GitHub Pages
+
+Yes — this project can be deployed to GitHub Pages (static hosting).
+
+- This repo includes a workflow at `.github/workflows/deploy-pages.yml` that builds and deploys `dist/` on every push to `main`.
+- In GitHub, enable Pages: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+⚠️ Note: this is a client-side app. Any Azure Maps subscription key used by the app is visible to users in the browser. For a public deployment, prefer letting users paste their own key in the UI, or use an auth approach that doesn’t expose a long-lived key.
+
 ## Security Note
 
 ⚠️ **Important**: Never commit your `.env` file with actual API keys. The `.env` file is included in `.gitignore` to prevent accidental exposure. Always use `.env.example` as a template.
