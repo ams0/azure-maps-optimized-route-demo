@@ -1,0 +1,119 @@
+# Azure Maps Optimized Route Demo
+
+A React + TypeScript application for calculating optimized routes through multiple waypoints using Azure Maps. Find the most efficient path to visit all your destinations with automatic route optimization.
+
+## Features
+
+- 🗺️ Interactive Azure Maps integration with crosshair positioning
+- 📍 Set start point and add multiple waypoints
+- ⚡ Automatic route optimization for efficient travel
+- 🛣️ Visual route display with bold path lines
+- 📊 Total distance and duration calculations
+- 🎨 Modern, responsive UI
+- ⚛️ Built with React 18, TypeScript, and Vite
+
+## Prerequisites
+
+- Node.js 22.12+ (you may see warnings with older versions)
+- An Azure Maps account with a subscription key ([Get one here](https://portal.azure.com))
+
+## Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd azure-maps-demo
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Azure Maps**
+   - Copy the environment template:
+     ```bash
+     cp .env.example .env
+     ```
+   - Add your Azure Maps subscription key to `.env`:
+     ```
+     VITE_AZURE_MAPS_SUBSCRIPTION_KEY=your_key_here
+     ```
+
+4. **Start development server**
+   ```bash
+   npm run dev
+   ```
+   The app will open at http://localhost:5173
+
+## Usage
+
+1. **Set Start Point**: Click "Set Start Point" to mark your starting location (green pin)
+2. **Add Waypoints**: Position the map crosshair and click "Add Waypoint" to add stops (blue markers)
+3. **Calculate Route**: Click "Calculate Optimized Route" to compute the most efficient path
+4. **View Results**: See the route drawn on the map with total distance and duration
+
+The app automatically optimizes the order of waypoints to minimize total travel time!
+     ```
+     VITE_AZURE_MAPS_SUBSCRIPTION_KEY=your_key_here
+     ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+   The app will open at http://localhost:5173
+
+## Usage
+
+1. **Add Origins**: Click "Add Origin" to add the current map center as an origin point
+2. **Add Destinations**: Click "Add Destination" to add destination points
+3. **Calculate**: Click "Calculate Route Matrix" to compute travel times and distances
+4. **View Results**: See the detailed matrix showing travel information between all origin-destination pairs
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── AzureMap.tsx       # Map component with crosshair overlay
+│   └── RouteMatrix.tsx    # Optimized route calculator UI
+├── types/
+│   └── routeMatrix.ts     # TypeScript interfaces
+├── App.tsx                # Main application component
+├── App.css                # Application styles
+└── main.tsx               # Entry point
+```
+
+## Azure Maps Route Optimization
+
+This demo uses the [Azure Maps Route Directions API](https://docs.microsoft.com/azure/azure-maps/how-to-use-best-practices-for-routing) with the `computeBestOrder=true` parameter to automatically optimize waypoint order for:
+
+- Delivery route planning
+- Multi-stop trip optimization  
+- Field service scheduling
+- Last-mile logistics
+- Travel itinerary planning
+
+## Tech Stack
+
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Fast build tool
+- **Azure Maps Web SDK** - Map rendering and controls
+- **Azure Maps REST API** - Route optimization
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+## Security Note
+
+⚠️ **Important**: Never commit your `.env` file with actual API keys. The `.env` file is included in `.gitignore` to prevent accidental exposure. Always use `.env.example` as a template.
+
+## License
+
+MIT
