@@ -28,6 +28,7 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTraffic, setShowTraffic] = useState(false);
+  const [vehicleType, setVehicleType] = useState<'car' | 'truck'>('car');
   const dataSourceRef = useRef<atlas.source.DataSource | null>(null);
   const routeDataSourceRef = useRef<atlas.source.DataSource | null>(null);
 
@@ -201,7 +202,15 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
       const query = points.map(loc => `${loc.lat},${loc.lon}`).join(':');
       
       const trafficParam = showTraffic ? '&traffic=true' : '';
-      const url = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=${subscriptionKey}&query=${query}&computeBestOrder=true${trafficParam}`;
+      const travelModeParam = `&travelMode=${vehicleType}`;
+      
+      // Add truck-specific parameters if truck is selected
+      let vehicleParams = '';
+      if (vehicleType === 'truck') {
+        vehicleParams = '&vehicleWidth=2.5&vehicleHeight=4&vehicleLength=12&vehicleWeight=10000';
+      }
+      
+      const url = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=${subscriptionKey}&query=${query}&computeBestOrder=true${trafficParam}${travelModeParam}${vehicleParams}`;
       
       const response = await fetch(url);
 
@@ -348,6 +357,33 @@ export const RouteMatrix: React.FC<RouteMatrixProps> = ({ map, subscriptionKey }
             />
             🚦 Show Live Traffic
           </label>
+        </div>
+        
+        <div style={{ marginBottom: '10px' }}>
+          <label style={{ fontSize: '14px', display: 'block', marginBottom: '5px' }}>
+            🚗 Vehicle Type:
+          </label>
+          <select 
+            value={vehicleType}
+            onChange={(e) => setVehicleType(e.target.value as 'car' | 'truck')}
+            style={{ 
+              padding: '8px 12px',
+              fontSize: '14px',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              cursor: 'pointer',
+              width: '100%',
+              maxWidth: '200px'
+            }}
+          >
+            <option value="car">🚗 Car</option>
+            <option value="truck">🚚 Truck (12m, 10t)</option>
+          </select>
+          {vehicleType === 'truck' && (
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              Standard truck: 2.5m wide, 4m tall, 12m long, 10,000kg
+            </div>
+          )}
         </div>
         
         <div style={{ marginTop: '15px' }}>
