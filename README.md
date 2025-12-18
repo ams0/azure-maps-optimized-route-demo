@@ -2,6 +2,8 @@
 
 A React + TypeScript application for calculating optimized routes through multiple waypoints using Azure Maps. Find the most efficient path to visit all your destinations with automatic route optimization.
 
+![Azure Maps Optimized Route Demo](screenshot.png)
+
 ## Features
 
 - 🗺️ Interactive Azure Maps integration with crosshair positioning
