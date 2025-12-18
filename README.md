@@ -110,6 +110,11 @@ Yes — this project can be deployed to GitHub Pages (static hosting).
 - This repo includes a workflow at `.github/workflows/deploy-pages.yml` that builds and deploys `dist/` on every push to `main`.
 - In GitHub, enable Pages: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
+### Troubleshooting
+
+- If you see `GET https://<user>.github.io/src/main.tsx 404`, GitHub Pages is serving the *source* `index.html` (the Vite dev entry) instead of the built output.
+   - Fix: ensure **Settings → Pages → Source** is set to **GitHub Actions**, then re-run the workflow.
+
 ⚠️ Note: this is a client-side app. Any Azure Maps subscription key used by the app is visible to users in the browser. For a public deployment, prefer letting users paste their own key in the UI, or use an auth approach that doesn’t expose a long-lived key.
 
 ## Security Note
